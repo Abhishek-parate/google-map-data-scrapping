@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Maps Business Scraper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-10">
+    <div class="max-w-xl mx-auto bg-white p-8 rounded-lg shadow-lg">
+        <h1 class="text-2xl font-bold text-center text-blue-600">Google Maps Business Scraper</h1>
+        <form method="POST" class="mt-5">
+            <label class="block text-sm font-medium text-gray-700">Search Term</label>
+            <input type="text" name="search_term" required class="w-full p-2 border border-gray-300 rounded-lg">
+
+            <label class="block mt-3 text-sm font-medium text-gray-700">Number of Results</label>
+            <input type="number" name="total_results" min="1" max="1000" required class="w-full p-2 border border-gray-300 rounded-lg">
+
+            <label class="block mt-3 text-sm font-medium text-gray-700">Save Format</label>
+            <select name="save_format" class="w-full p-2 border border-gray-300 rounded-lg">
+                <option value="Excel">Excel</option>
+                <option value="CSV">CSV</option>
+            </select>
+
+            <button type="submit" class="mt-4 w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
+                Scrape & Download
+            </button>
+        </form>
+    </div>
+</body>
+</html>

@@ -1,0 +1,23 @@
+<h1>Details for Search Term: "{{ query.query }}"</h1>
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Business Name</th>
+            <th>Address</th>
+            <th>Phone Number</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in data %}
+        <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ item.name }}</td>
+            <td>{{ item.address }}</td>
+            <td>{{ item.phone_number }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>

@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="flex h-screen bg-gray-50 dark:bg-gray-900">
+    <!-- Sidebar (Fixed) -->
+    <aside class="w-64 bg-teal-700 text-white flex flex-col fixed h-screen p-4 shadow-lg">
+        <div class="text-lg font-semibold flex justify-between items-center mb-6">
+            <span>Dashboard</span>
+        </div>
+        <nav class="flex-1 space-y-4">
+            <a href="#" class="flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-teal-600">
+                <span>🏠</span> <span>Home</span>
+            </a>
+            <a href="#" class="flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-teal-600">
+                <span>📊</span> <span>Scraped Data</span>
+            </a>
+            <a href="{{ url_for('scrape') }}" class="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 shadow-md">
+                Start Scraping
+            </a>
+            {% if current_user.role == "admin" %}
+            <a href="#" class="flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-teal-600">
+                <span>👥</span> <span>Manage Users</span>
+            </a>
+            {% endif %}
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col ml-64">
+        <!-- Header -->
+        <header class="bg-white dark:bg-gray-800 shadow-md p-4 flex justify-between items-center">
+            <h1 class="text-xl font-semibold text-gray-800 dark:text-gray-300">Welcome, {{ current_user.username }}</h1>
+            <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-2">
+                    <svg class="w-10 h-10 text-gray-700 dark:text-gray-300" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2a6 6 0 100 12 6 6 0 000-12zm0 14c-4.4 0-8 2-8 4v2h16v-2c0-2-3.6-4-8-4z" />
+                    </svg>
+                    <div>
+                        <span class="block text-gray-800 dark:text-gray-300">{{ current_user.username }}</span>
+                        <span class="text-sm text-gray-600 dark:text-gray-400">{{ current_user.role }}</span>
+                    </div>
+                </div>
+                <a href="{{ url_for('logout') }}" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 shadow-md">
+                    Logout
+                </a>
+            </div>
+        </header>
+
+        <!-- Dashboard Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
+            <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+                <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-300">Total Users</h2>
+                <p class="text-2xl font-bold text-teal-700 dark:text-teal-400">{{ users|length }}</p>
+            </div>
+            <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+                <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-300">Scraped Entries</h2>
+                <p class="text-2xl font-bold text-teal-700 dark:text-teal-400">{{ data|length }}</p>
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="p-6">
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-300 mb-4">Scraped Data</h2>
+            <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg overflow-x-auto">
+                <table class="w-full border-collapse border border-gray-300">
+                    <thead>
+                        <tr class="bg-gray-200 dark:bg-gray-700">
+                            <th class="border p-2">Search Term</th>
+                            <th class="border p-2">Date of Search</th>
+                            {% if current_user.role == "admin" %}
+                            <th class="border p-2">User</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for query in queries %}
+                        <tr>
+                            <td class="border p-2">{{ query.query }}</td>
+                            <td class="border p-2">{{ query.date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            {% if current_user.role == "admin" %}
+                            <td class="border p-2">{{ query.user.username }}</td>
+                            {% endif %}
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="{% if current_user.role == 'admin' %}3{% else %}2{% endif %}" class="text-center border p-2">No data available.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Modal -->
+        <div id="detailsModal" class="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center hidden transition-opacity duration-300">
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-3/4 max-w-3xl relative">
+                <button onclick="closeModal()" class="absolute top-2 right-2 text-gray-600 dark:text-gray-300">❌</button>
+                <h3 class="text-2xl font-semibold text-gray-800 dark:text-gray-300 mb-4">Scraped Data Details</h3>
+                <div id="detailsContent"></div>
+            </div>
+        </div>
+
+        <!-- JavaScript -->
+        <script>
+            function fetchScrapedDataDetails(queryId) {
+                fetch(`/scraped-data-details/${queryId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            alert(data.error);
+                            return;
+                        }
+
+                        let content = `<table class="w-full border-collapse border border-gray-300">
+                            <thead>
+                                <tr class="bg-gray-200">
+                                    <th class="border p-2">Name</th>
+                                    <th class="border p-2">Address</th>
+                                    <th class="border p-2">Website</th>
+                                    <th class="border p-2">Phone</th>
+                                    <th class="border p-2">Reviews</th>
+                                    <th class="border p-2">Rating</th>
+                                    <th class="border p-2">Info</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+
+                        data.forEach(item => {
+                            content += `<tr>
+                                <td class="border p-2">${item.name || "N/A"}</td>
+                                <td class="border p-2">${item.address || "N/A"}</td>
+                                <td class="border p-2"><a href="${item.website}" target="_blank">${item.website || "N/A"}</a></td>
+                                <td class="border p-2">${item.phone_number || "N/A"}</td>
+                                <td class="border p-2">${item.reviews_count || 0}</td>
+                                <td class="border p-2">${item.reviews_average || 0}</td>
+                                <td class="border p-2">${item.additional_info || "N/A"}</td>
+                            </tr>`;
+                        });
+
+                        content += `</tbody></table>`;
+                        document.getElementById("detailsContent").innerHTML = content;
+                        document.getElementById("detailsModal").classList.remove("hidden");
+                    })
+                    .catch(error => console.error("Error fetching data:", error));
+            }
+
+            function closeModal() {
+                document.getElementById("detailsModal").classList.add("hidden");
+            }
+        </script>
+
+    </div>
+</div>
+{% endblock %}
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+</head>
+<body>
+    <h1>Welcome to the Dashboard</h1>
+    
+    {% if current_user.role == "admin" %}
+    <h2>All Users</h2>
+    <ul>
+        {% for user in users %}
+        <li>{{ user.username }} - {{ user.email }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    <h2>Scraped Data</h2>
+    {% if data %}
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Address</th>
+                <th>Phone</th>
+                <th>Search Term</th>
+                <th>Date of Search</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in data %}
+            <tr>
+                <td>{{ entry.id }}</td>
+                <td>{{ entry.name }}</td>
+                <td>{{ entry.address }}</td>
+                <td>{{ entry.phone_number }}</td>
+                <td>{{ entry.search_query.query }}</td>
+                <td>{{ entry.search_query.date.strftime('%Y-%m-%d') }}</td>
+                <td>
+                    <a href="/scraped-data-details/{{ entry.id }}">Details</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No data available.</p>
+    {% endif %}
+</body>
+</html>
+ -->

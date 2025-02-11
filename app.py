@@ -1,14 +1,26 @@
-from flask import Flask, render_template, request, send_file
-import pandas as pd
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
+from flask_sqlalchemy import SQLAlchemy
+from flask_bcrypt import Bcrypt
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 import asyncio
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright  # Note the async import
+import pandas as pd
 import os
 import logging
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, field, asdict
 import datetime
 import pytz
+from config import Config
+from models import db, User, ScrapedData, SearchQuery
 
 app = Flask(__name__)
+app.config.from_object(Config)
+
+db.init_app(app)  # Initialize db with the Flask app context
+
+bcrypt = Bcrypt(app)
+login_manager = LoginManager(app)
+login_manager.login_view = "login"
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -46,85 +58,111 @@ class BusinessList:
             logging.error(f"Failed to save data to Excel: {e}")
             return None
 
-async def scrape_business(search_term, total):
-    """Scrapes Google Maps for business details"""
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        page = await browser.new_page()
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
-        try:
-            logging.info(f"Searching for: {search_term}")
-            await page.goto("https://www.google.com/maps", timeout=60000)
-            await page.wait_for_timeout(5000)
+@app.route("/")
+def home():
+    return render_template("index.html")
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        username = request.form["username"]
+        email = request.form["email"]
+        password = bcrypt.generate_password_hash(request.form["password"]).decode("utf-8")
+        new_user = User(username=username, email=email, password=password)
+        db.session.add(new_user)
+        db.session.commit()
+        flash("Registration successful! Please log in.", "success")
+        return redirect(url_for("login"))
+    return render_template("register.html")
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        email = request.form["email"]
+        password = request.form["password"]
+        user = User.query.filter_by(email=email).first()
+        if user and bcrypt.check_password_hash(user.password, password):
+            login_user(user)
+            return redirect(url_for("dashboard"))
+        flash("Invalid email or password.", "danger")
+    return render_template("login.html")
+
+@app.route("/dashboard")
+@login_required
+def dashboard():
+    """Render the dashboard with user-specific or admin-specific data."""
+    users = []
+    data = []
+
+    if current_user.role == "admin":
+        # Admin sees all users and all scraped data
+        users = User.query.all()
+        data = ScrapedData.query.all()
+    else:
+        # Regular users see only their own scraped data
+        data = ScrapedData.query.filter_by(user_id=current_user.id).all()
+
+    return render_template("dashboard.html", users=users, data=data)
+
+
+@app.route("/scrape", methods=["POST", "GET"])
+@login_required
+async def scrape():
+    if request.method == "POST":
+        # Handle scraping logic
+        search_term = request.form.get("search_term")
+        total_results = int(request.form.get("total_results"))
+
+        # Create a new SearchQuery entry to store the search term and the user who made the search
+        search_query = SearchQuery(user_id=current_user.id, query=search_term, date=datetime.datetime.utcnow())
+        db.session.add(search_query)
+        db.session.commit()  # Commit the search query to get the ID
+
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            page = await browser.new_page()
+
+            await page.goto("https://www.google.com/maps")
             await page.fill('//input[@id="searchboxinput"]', search_term)
             await page.keyboard.press("Enter")
             await page.wait_for_timeout(5000)
 
-            listings = []
-            previously_counted = 0
+            listings = await page.locator('//a[contains(@href, "https://www.google.com/maps/place")]').all()
+            listings = listings[:total_results]
 
-            while True:
-                await page.mouse.wheel(0, 10000)
-                await page.wait_for_timeout(2000)
-                current_count = await page.locator('//a[contains(@href, "https://www.google.com/maps/place")]').count()
-
-                if current_count >= total:
-                    listings = await page.locator('//a[contains(@href, "https://www.google.com/maps/place")]').all()
-                    listings = listings[:total]
-                    break
-                elif current_count == previously_counted:
-                    listings = await page.locator('//a[contains(@href, "https://www.google.com/maps/place")]').all()
-                    break
-                else:
-                    previously_counted = current_count
-
-            business_list = BusinessList()
-            logging.info(f"Found {len(listings)} listings.")
-
+            # Loop through the listings and store the data in the database
             for listing in listings:
-                try:
-                    await listing.click()
-                    await page.wait_for_timeout(3000)
+                await listing.click()
+                await page.wait_for_timeout(3000)
 
-                    business = Business()
-                    business.name = await get_text(page, 'h1.DUwDvf.lfPIob')
-                    business.address = await get_text(page, '//button[@data-item-id="address"]//div[contains(@class, "fontBodyMedium")]', is_xpath=True)
-                    business.website = await get_text(page, '//a[@data-item-id="authority"]//div[contains(@class, "fontBodyMedium")]', is_xpath=True)
-                    business.phone_number = await get_text(page, '//button[contains(@data-item-id, "phone")]//div[contains(@class, "fontBodyMedium")]', is_xpath=True)
-                    
+                name = await listing.inner_text()
+                address = await page.locator('//button[@data-item-id="address"]').text_content()
+                phone_number = await page.locator('//button[contains(@data-item-id, "phone")]').text_content()
 
-                    review_count_text = await get_text(page, '//div[contains(@class, "F7nice")]//span[contains(@aria-label, "review")]', is_xpath=True)
+                # Create a ScrapedData object and associate it with the current search query
+                scraped_data = ScrapedData(
+                    user_id=current_user.id,
+                    name=name,
+                    address=address,
+                    phone_number=phone_number,
+                    search_query_id=search_query.id  # Link the scraped data to the search query
+                )
+                db.session.add(scraped_data)
 
-                    if review_count_text:
-                        business.reviews_count = int("".join(filter(str.isdigit, review_count_text)))  # Corrected line
-
-                    reviews_average_text = await page.locator('//div[@jsaction="pane.reviewChart.moreReviews"]//div[@role="img"]').get_attribute("aria-label")
-                    business.reviews_average = float(reviews_average_text.split()[0].replace(",", ".")) if reviews_average_text else None
-
-                    business_list.business_list.append(business)
-                except Exception as e:
-                    logging.error(f"Error scraping listing: {e}")
-
+            db.session.commit()  # Commit all the scraped data to the database
             await browser.close()
-            return business_list
-        except Exception as e:
-            logging.error(f"Error during scraping: {e}")
-            await browser.close()
-            return BusinessList()
 
-async def get_text(page, selector, is_xpath=False):
-    """Helper function to get text from a selector"""
-    try:
-        if is_xpath:
-            locator = page.locator(f"xpath={selector}")
-        else:
-            locator = page.locator(selector)
-        return await locator.inner_text() if await locator.count() > 0 else None
-    except Exception:
-        return None
+        flash("Scraping completed and data saved!", "success")
+        return redirect(url_for("dashboard"))
 
-@app.route("/", methods=["GET", "POST"])
-def index():
+    return render_template("scrape.html")
+
+@app.route("/scrape_business", methods=["GET", "POST"])
+def scrape_business_route():
     if request.method == "POST":
         search_term = request.form.get("search_term")
         total_results = int(request.form.get("total_results"))
@@ -137,13 +175,52 @@ def index():
         business_list = asyncio.run(scrape_business(search_term, total_results))
         file_path = business_list.save_to_excel(file_name)
 
-        return render_template("index.html", businesses=business_list.business_list, file_path=file_path)
-    
-    return render_template("index.html", businesses=None, file_path=None)
+        return render_template("dashboard.html", businesses=business_list.business_list, file_path=file_path)
+
+    return render_template("dashboard.html", businesses=None, file_path=None)
 
 @app.route("/download/<path:filename>")
 def download(filename):
     return send_file(filename, as_attachment=True)
 
+@app.route('/scraped-data-details/<int:id>', methods=['GET'])
+@login_required
+def get_scraped_data_details(id):
+    """Fetch and display details for a specific scraped data entry."""
+    data = ScrapedData.query.get(id)  # Retrieve the scraped data by ID
+    if data:
+        query_results = ScrapedData.query.filter_by(search_query_id=data.search_query_id).all()
+        result_list = [
+            {
+                "name": entry.name,
+                "address": entry.address,
+                "phone": entry.phone_number,
+                "additional_info": entry.additional_info or 'N/A'
+            }
+            for entry in query_results
+        ]
+        return jsonify(result_list)  # Return JSON for frontend display
+    else:
+        return jsonify({"error": "Data not found"}), 404
+
+@app.route("/search_queries")
+@login_required
+def search_queries():
+    """Render search queries based on user role."""
+    if current_user.role == "admin":
+        queries = SearchQuery.query.all()  # Admin sees all search queries
+    else:
+        queries = SearchQuery.query.filter_by(user_id=current_user.id).all()  # User sees their own queries
+
+    return render_template("search_queries.html", queries=queries)
+
+@app.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for("home"))
+
 if __name__ == "__main__":
+    with app.app_context():
+        db.create_all()  # Create all tables in the database if they don't exist
     app.run(debug=True)

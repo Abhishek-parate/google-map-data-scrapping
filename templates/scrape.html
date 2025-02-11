@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+
+<div class="flex h-screen bg-gray-50 dark:bg-gray-900">
+    <!-- Sidebar (Fixed) -->
+    <aside class="w-64 bg-teal-700 text-white flex flex-col fixed h-screen p-4 shadow-lg">
+        <div class="text-lg font-semibold flex justify-between items-center mb-6">
+            <span>Dashboard</span>
+        </div>
+        <nav class="flex-1 space-y-4">
+            <a href="{{ url_for('dashboard') }}" class="flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-teal-600">
+                <span>🏠</span> <span>Home</span>
+            </a>
+            <a href="{{ url_for('scrape') }}" class="flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-teal-600">
+                <span>📊</span> <span>Scrape Data</span>
+            </a>
+            <a href="{{ url_for('scrape') }}" class="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 shadow-md">
+                Start Scraping
+            </a>
+            {% if current_user.role == "admin" %}
+            <a href="#" class="flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-teal-600">
+                <span>👥</span> <span>Manage Users</span>
+            </a>
+            {% endif %}
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col ml-64">
+        <!-- Header -->
+        <header class="bg-white dark:bg-gray-800 shadow-md p-4 flex justify-between items-center">
+            <h1 class="text-xl font-semibold text-gray-800 dark:text-gray-300">Welcome, {{ current_user.username }}</h1>
+            <div class="flex items-center space-x-4">
+                <!-- Profile Section with SVG Image -->
+                <div class="flex items-center space-x-2">
+                    <svg class="w-10 h-10 text-gray-700 dark:text-gray-300" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2a6 6 0 100 12 6 6 0 000-12zm0 14c-4.4 0-8 2-8 4v2h16v-2c0-2-3.6-4-8-4z" />
+                    </svg>
+                    <div>
+                        <span class="block text-gray-800 dark:text-gray-300">{{ current_user.username }}</span>
+                        <span class="text-sm text-gray-600 dark:text-gray-400">{{ current_user.role }}</span>
+                    </div>
+                </div>
+                <!-- Logout Button -->
+                <a href="{{ url_for('logout') }}" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 shadow-md">
+                    Logout
+                </a>
+            </div>
+        </header>
+
+        <!-- Main Dashboard Content -->
+        <div class="p-6 space-y-4">
+            <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-300">Scrape Business Data</h2>
+
+            <!-- Form to submit scraping details -->
+            <form method="POST" action="{{ url_for('scrape') }}" class="space-y-4">
+                <div>
+                    <label for="search_term" class="block text-gray-600 dark:text-gray-300">Search Term</label>
+                    <input type="text" id="search_term" name="search_term" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md" required>
+                </div>
+                <div>
+                    <label for="total_results" class="block text-gray-600 dark:text-gray-300">Total Results</label>
+                    <input type="number" id="total_results" name="total_results" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md" required>
+                </div>
+                <button type="submit" class="w-full py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 shadow-md">Start Scraping</button>
+            </form>
+
+            {% if businesses %}
+            <div class="mt-6">
+                <h3 class="text-xl font-semibold text-gray-800 dark:text-gray-300">Scraped Business Listings</h3>
+                <table class="min-w-full mt-4 bg-white dark:bg-gray-800">
+                    <thead>
+                        <tr>
+                            <th class="border-b p-2 text-left">Name</th>
+                            <th class="border-b p-2 text-left">Address</th>
+                            <th class="border-b p-2 text-left">Phone</th>
+                            <th class="border-b p-2 text-left">Website</th>
+                            <th class="border-b p-2 text-left">Reviews</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for business in businesses %}
+                        <tr>
+                            <td class="p-2">{{ business.name }}</td>
+                            <td class="p-2">{{ business.address }}</td>
+                            <td class="p-2">{{ business.phone_number }}</td>
+                            <td class="p-2"><a href="{{ business.website }}" target="_blank">{{ business.website }}</a></td>
+                            <td class="p-2">{{ business.reviews_count }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                {% if file_path %}
+                <a href="{{ url_for('download', filename=file_path) }}" class="mt-4 inline-block px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Download Excel</a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}
