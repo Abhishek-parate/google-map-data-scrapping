@@ -1,6 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
-from datetime import datetime
+from datetime import datetime 
 
 db = SQLAlchemy()
 
@@ -9,7 +9,9 @@ class User(db.Model, UserMixin):
     username = db.Column(db.String(50), unique=True, nullable=False)
     email = db.Column(db.String(100), unique=True, nullable=False)
     password = db.Column(db.String(100), nullable=False)
-    role = db.Column(db.String(10), nullable=False, default="user")  # "admin" or "user"
+    role = db.Column(db.String(10), nullable=False, default="user") 
+
+
 
 class ScrapedData(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -20,18 +22,15 @@ class ScrapedData(db.Model):
     phone_number = db.Column(db.String(50))
     reviews_count = db.Column(db.Integer)
     reviews_average = db.Column(db.Float)
-    additional_info = db.Column(db.String(255))  # Added additional info
-    search_query_id = db.Column(db.Integer, db.ForeignKey("search_query.id"), nullable=False)  # Foreign key to SearchQuery
+    additional_info = db.Column(db.String(255))  
+    search_query_id = db.Column(db.Integer, db.ForeignKey("search_query.id"), nullable=False)  # ForeignKey should be correct
+
+
 
 class SearchQuery(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     query = db.Column(db.String(255), nullable=False)
-    date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)  # Date of the search
-
-    # Relationship to the User model
-    user = db.relationship('User', backref=db.backref('search_queries', lazy=True))
-
+    date = db.Column(db.DateTime, default=datetime.utcnow)  
+    user = db.relationship("User", backref=db.backref("search_queries", lazy=True))
     results = db.relationship("ScrapedData", backref="search_query", lazy=True)
-    
-    user = db.relationship('User', backref='search_queries')

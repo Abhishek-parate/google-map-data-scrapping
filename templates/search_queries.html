@@ -1,0 +1,16 @@
+<table class="table">
+    <thead>
+        <tr>
+            <th>Query</th>
+            <th>Date</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for query in queries %}
+        <tr>
+            <td>{{ query.query }}</td>
+            <td>{{ query.date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
