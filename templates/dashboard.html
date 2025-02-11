@@ -129,39 +129,41 @@ content %}
     </div>
 
     <!-- Modal for showing Scraped Data -->
-    <div
-      id="scrapedDataModal"
-      class="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center hidden"
+    <!-- Modal for showing Scraped Data -->
+<div
+id="scrapedDataModal"
+class="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center hidden"
+>
+<div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-1/2 max-h-[80vh] overflow-y-auto">
+  <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-300">
+    Scraped Data Details
+  </h2>
+  <div id="scrapedDataContent" class="mt-4 max-h-60 overflow-y-auto">
+    <!-- Content will be injected here by JavaScript -->
+  </div>
+  <div class="mt-4 flex space-x-4">
+    <button
+      onclick="exportDataToCSV()"
+      class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
     >
-      <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-1/2">
-        <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-300">
-          Scraped Data Details
-        </h2>
-        <div id="scrapedDataContent" class="mt-4">
-          <!-- Content will be injected here by JavaScript -->
-        </div>
-        <div class="mt-4 flex space-x-4">
-          <button
-            onclick="exportDataToCSV()"
-            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-          >
-            Export to CSV
-          </button>
-          <button
-            onclick="exportDataToExcel()"
-            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Export to Excel
-          </button>
-        </div>
-        <button
-          onclick="closeModal()"
-          class="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-        >
-          Close
-        </button>
-      </div>
-    </div>
+      Export to CSV
+    </button>
+    <button
+      onclick="exportDataToExcel()"
+      class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+    >
+      Export to Excel
+    </button>
+  </div>
+  <button
+    onclick="closeModal()"
+    class="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+  >
+    Close
+  </button>
+</div>
+</div>
+
 
     <script>
       function openModal(row) {
@@ -184,7 +186,7 @@ content %}
                                         <th class="border p-2">Phone Number</th>
                                         <th class="border p-2">Reviews Count</th>
                                         <th class="border p-2">Reviews Average</th>
-                                        <th class="border p-2">Additional Info</th>
+                                        <th class="border p-2">Website</th>
                                     </tr>
                                 </thead>
                                 <tbody>`;
@@ -196,7 +198,7 @@ content %}
                                     <td class="border p-2">${entry.phone_number}</td>
                                     <td class="border p-2">${entry.reviews_count}</td>
                                     <td class="border p-2">${entry.reviews_average}</td>
-                                    <td class="border p-2">${entry.additional_info}</td>
+                                    <td class="border p-2">${entry.website}</td>
                                 </tr>`;
             });
 

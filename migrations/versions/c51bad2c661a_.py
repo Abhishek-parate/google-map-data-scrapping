@@ -45,7 +45,7 @@ def upgrade():
     sa.Column('phone_number', sa.String(length=50), nullable=True),
     sa.Column('reviews_count', sa.Integer(), nullable=True),
     sa.Column('reviews_average', sa.Float(), nullable=True),
-    sa.Column('additional_info', sa.String(length=255), nullable=True),
+    sa.Column('website', sa.String(length=255), nullable=True),
     sa.Column('search_query_id', sa.Integer(), nullable=False),
     sa.ForeignKeyConstraint(['search_query_id'], ['search_query.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),

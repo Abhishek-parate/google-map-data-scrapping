@@ -22,7 +22,6 @@ class ScrapedData(db.Model):
     phone_number = db.Column(db.String(50))
     reviews_count = db.Column(db.Integer)
     reviews_average = db.Column(db.Float)
-    additional_info = db.Column(db.String(255))  
     search_query_id = db.Column(db.Integer, db.ForeignKey("search_query.id"), nullable=False)  # ForeignKey should be correct
 
 

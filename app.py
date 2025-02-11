@@ -9,6 +9,11 @@ from config import Config
 from models import db, User, SearchQuery, ScrapedData
 from flask_migrate import Migrate
 from openpyxl import Workbook  # Add this line
+from dataclasses import dataclass, field
+import pytz
+from datetime import datetime 
+import asyncio
+from playwright.async_api import async_playwright
 
 
 app = Flask(__name__)
@@ -28,6 +33,160 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
+
+
+# Define business data model
+@dataclass
+class Business:
+    """Holds business data"""
+    name: str = None
+    address: str = None
+    website: str = None
+    phone_number: str = None
+    reviews_count: int = None
+    reviews_average: float = None
+
+
+@dataclass
+class BusinessList:
+    """Holds list of Business objects and saves to Excel"""
+    business_list: list[Business] = field(default_factory=list)
+    save_at = "output"
+
+    def dataframe(self):
+        """Transform business_list to pandas dataframe"""
+        return pd.DataFrame([asdict(business) for business in self.business_list])
+
+
+
+async def scrape_business(search_term, total, user_id):
+    """Scrapes Google Maps for business details and stores them in the database"""
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        page = await browser.new_page()
+
+        try:
+            logging.info(f"Searching for: {search_term}")
+            await page.goto("https://www.google.com/maps", timeout=60000)
+            await page.wait_for_timeout(5000)
+            await page.fill('//input[@id="searchboxinput"]', search_term)
+            await page.keyboard.press("Enter")
+            await page.wait_for_timeout(5000)
+
+            listings = []
+            previously_counted = 0
+
+            while True:
+                await page.mouse.wheel(0, 10000)
+                await page.wait_for_timeout(2000)
+                current_count = await page.locator('//a[contains(@href, "https://www.google.com/maps/place")]').count()
+
+                if current_count >= total:
+                    listings = await page.locator('//a[contains(@href, "https://www.google.com/maps/place")]').all()
+                    listings = listings[:total]
+                    break
+                elif current_count == previously_counted:
+                    listings = await page.locator('//a[contains(@href, "https://www.google.com/maps/place")]').all()
+                    break
+                else:
+                    previously_counted = current_count
+
+            business_list = BusinessList()
+            logging.info(f"Found {len(listings)} listings.")
+
+            # Create a SearchQuery and store it
+            search_query = SearchQuery(query=search_term, user_id=user_id)
+            db.session.add(search_query)
+            db.session.commit()  # Commit after creating the SearchQuery to get its ID
+
+            for listing in listings:
+                try:
+                    await listing.click()
+                    await page.wait_for_timeout(3000)
+
+                    business = Business()
+                    business.name = await get_text(page, 'h1.DUwDvf.lfPIob')
+                    business.address = await get_text(page, '//button[@data-item-id="address"]//div[contains(@class, "fontBodyMedium")]', is_xpath=True)
+                    business.website = await get_text(page, '//a[@data-item-id="authority"]//div[contains(@class, "fontBodyMedium")]', is_xpath=True)
+                    business.phone_number = await get_text(page, '//button[contains(@data-item-id, "phone")]//div[contains(@class, "fontBodyMedium")]', is_xpath=True)
+
+                    review_count_text = await get_text(page, '//div[contains(@class, "F7nice")]//span[contains(@aria-label, "review")]', is_xpath=True)
+
+                    if review_count_text:
+                        business.reviews_count = int("".join(filter(str.isdigit, review_count_text)))  
+
+                    reviews_average_text = await page.locator('//div[@jsaction="pane.reviewChart.moreReviews"]//div[@role="img"]').get_attribute("aria-label")
+                    business.reviews_average = float(reviews_average_text.split()[0].replace(",", ".")) if reviews_average_text else None
+
+                    # Create ScrapedData for each business and associate it with the SearchQuery
+                    scraped_data = ScrapedData(
+                        user_id=user_id,
+                        name=business.name,
+                        address=business.address,
+                        website=business.website,
+                        phone_number=business.phone_number,
+                        reviews_count=business.reviews_count,
+                        reviews_average=business.reviews_average,
+                        search_query_id=search_query.id
+                    )
+                    db.session.add(scraped_data)
+                    db.session.commit()  # Commit after each entry to save it
+
+                    business_list.business_list.append(business)
+                except Exception as e:
+                    logging.error(f"Error scraping listing: {e}")
+
+            await browser.close()
+            return business_list
+        except Exception as e:
+            logging.error(f"Error during scraping: {e}")
+            await browser.close()
+            return BusinessList()
+        
+
+async def get_text(page, selector, is_xpath=False):
+    """Helper function to get text from a selector"""
+    try:
+        if is_xpath:
+            locator = page.locator(f"xpath={selector}")
+        else:
+            locator = page.locator(selector)
+        return await locator.inner_text() if await locator.count() > 0 else None
+    except Exception:
+        return None
+
+
+@app.route("/scrape", methods=["GET", "POST"])
+@login_required
+def scrape_view():
+    if request.method == "POST":
+        search_term = request.form.get("search_term")
+        total_results = int(request.form.get("total_results"))
+
+        user_id = current_user.id
+
+        # Run the scraper and save data in DB only
+        asyncio.run(scrape_business(search_term, total_results, user_id))
+
+        flash("Scraping completed and data saved in the database!", "success")
+        return redirect(url_for("dashboard"))
+
+    return render_template("scrape.html", businesses=None)
+
+
+
+@app.route("/api/scrape", methods=["POST"])
+def scrape_api():
+    data = request.get_json()
+    search_term = data.get('search_term')
+    total_results = int(data.get('total_results'))
+
+    user_id = current_user.id  # Assuming user authentication
+
+    asyncio.run(scrape_business(search_term, total_results, user_id))
+
+    return jsonify({"message": "Scraping successful. Data saved in the database."})
 
 
 @app.route("/")
@@ -111,7 +270,7 @@ def scraped_data(query_id):
                 "phone_number": entry.phone_number,
                 "reviews_count": entry.reviews_count,
                 "reviews_average": entry.reviews_average,
-                "additional_info": entry.additional_info
+                "website": entry.website
             } for entry in scraped_data]
         }
 
@@ -149,7 +308,7 @@ def export_csv(query_id):
                              data.phone_number, 
                              data.reviews_count, 
                              data.reviews_average, 
-                             data.additional_info])
+                             data.website])
 
         output.seek(0)  # Rewind the file pointer to the beginning
 
@@ -190,7 +349,7 @@ def export_excel(query_id):
 
         # Write data rows to Excel
         for data in scraped_data:
-            ws.append([data.name, data.address, data.phone_number, data.reviews_count, data.reviews_average, data.additional_info])
+            ws.append([data.name, data.address, data.phone_number, data.reviews_count, data.reviews_average, data.website])
 
         # Save the workbook to memory (BytesIO)
         output = BytesIO()
