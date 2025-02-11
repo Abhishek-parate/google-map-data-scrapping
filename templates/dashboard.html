@@ -1,163 +1,241 @@
-{% extends 'base.html' %}
-
-{% block title %}Dashboard{% endblock %}
-
-{% block content %}
+{% extends 'base.html' %} {% block title %}Dashboard{% endblock %} {% block
+content %}
 <div class="flex h-screen bg-gray-50 dark:bg-gray-900">
-    <!-- Sidebar (Fixed) -->
-    <aside class="w-64 bg-teal-700 text-white flex flex-col fixed h-screen p-4 shadow-lg">
-        <div class="text-lg font-semibold flex justify-between items-center mb-6">
-            <span>Dashboard</span>
+  <!-- Sidebar (Fixed) -->
+  <aside
+    class="w-64 bg-teal-700 text-white flex flex-col fixed h-screen p-4 shadow-lg"
+  >
+    <div class="text-lg font-semibold flex justify-between items-center mb-6">
+      <span>Dashboard</span>
+    </div>
+    <nav class="flex-1 space-y-4">
+      <a
+        href="#"
+        class="flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-teal-600"
+      >
+        <span>🏠</span> <span>Home</span>
+      </a>
+      <a
+        href="{{ url_for('scrape') }}"
+        class="flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-teal-600"
+      >
+        <span>📊</span> <span>Scraped Data</span>
+      </a>
+
+      {% if current_user.role == "admin" %}
+      <a
+        href="#"
+        class="flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-teal-600"
+      >
+        <span>👥</span> <span>Manage Users</span>
+      </a>
+      {% endif %}
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <div class="flex-1 flex flex-col ml-64">
+    <!-- Header -->
+    <header
+      class="bg-white dark:bg-gray-800 shadow-md p-4 flex justify-between items-center"
+    >
+      <h1 class="text-xl font-semibold text-gray-800 dark:text-gray-300">
+        Welcome, {{ current_user.username }}
+      </h1>
+      <div class="flex items-center space-x-4">
+        <div class="flex items-center space-x-2">
+          <svg
+            class="w-10 h-10 text-gray-700 dark:text-gray-300"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          >
+            <path
+              d="M12 2a6 6 0 100 12 6 6 0 000-12zm0 14c-4.4 0-8 2-8 4v2h16v-2c0-2-3.6-4-8-4z"
+            />
+          </svg>
+          <div>
+            <span class="block text-gray-800 dark:text-gray-300"
+              >{{ current_user.username }}</span
+            >
+            <span class="text-sm text-gray-600 dark:text-gray-400"
+              >{{ current_user.role }}</span
+            >
+          </div>
         </div>
-        <nav class="flex-1 space-y-4">
-            <a href="#" class="flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-teal-600">
-                <span>🏠</span> <span>Home</span>
-            </a>
-            <a href="{{ url_for('scrape') }}"  class="flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-teal-600">
-                <span>📊</span> <span>Scraped Data</span>
-            </a>
-            
-            {% if current_user.role == "admin" %}
-            <a href="#" class="flex items-center space-x-2 px-4 py-2 rounded-lg hover:bg-teal-600">
-                <span>👥</span> <span>Manage Users</span>
-            </a>
-            {% endif %}
-        </nav>
-    </aside>
+        <a
+          href="{{ url_for('logout') }}"
+          class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 shadow-md"
+        >
+          Logout
+        </a>
+      </div>
+    </header>
 
-    <!-- Main Content -->
-    <div class="flex-1 flex flex-col ml-64">
-        <!-- Header -->
-        <header class="bg-white dark:bg-gray-800 shadow-md p-4 flex justify-between items-center">
-            <h1 class="text-xl font-semibold text-gray-800 dark:text-gray-300">Welcome, {{ current_user.username }}</h1>
-            <div class="flex items-center space-x-4">
-                <div class="flex items-center space-x-2">
-                    <svg class="w-10 h-10 text-gray-700 dark:text-gray-300" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2a6 6 0 100 12 6 6 0 000-12zm0 14c-4.4 0-8 2-8 4v2h16v-2c0-2-3.6-4-8-4z" />
-                    </svg>
-                    <div>
-                        <span class="block text-gray-800 dark:text-gray-300">{{ current_user.username }}</span>
-                        <span class="text-sm text-gray-600 dark:text-gray-400">{{ current_user.role }}</span>
-                    </div>
-                </div>
-                <a href="{{ url_for('logout') }}" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 shadow-md">
-                    Logout
-                </a>
-            </div>
-        </header>
+    <!-- Dashboard Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
+      <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+        <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-300">
+          Total Queries
+        </h2>
+        <p class="text-2xl font-bold text-teal-700 dark:text-teal-400">
+          {{ total_queries }}
+        </p>
+      </div>
+      <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+        <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-300">
+          Total Results
+        </h2>
+        <p class="text-2xl font-bold text-teal-700 dark:text-teal-400">
+          {{ total_scraped_data }}
+        </p>
+      </div>
+    </div>
 
-        <!-- Dashboard Stats -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
-            <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
-                <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-300">Total Query</h2>
-                <p class="text-2xl font-bold text-teal-700 dark:text-teal-400"></p>
-            </div>
-            <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
-                <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-300">Total Result</h2>
-                <p class="text-2xl font-bold text-teal-700 dark:text-teal-400"></p>
-            </div>
-        </div>
+    <!-- Data Table -->
 
-        <!-- Data Table -->
-        <div class="p-6">
-            <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-300 mb-4">Scraped Data</h2>
-            <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg overflow-x-auto">
-                <table class="w-full border-collapse border border-gray-300">
-                    <thead>
-                        <tr class="bg-gray-200 dark:bg-gray-700">
-                            <th class="border p-2">Search Term</th>
-                            <th class="border p-2">Date of Search</th>
-                         
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for query in search_queries %}
-                        <tr class="border cursor-pointer" onclick="openModal({{ query.id }})">
-                            <td class="border p-2">{{ query.query }}</td>
-                            <td class="border p-2">{{ query.date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                    
-                </table>
-            </div>
-        </div>
+    <!-- Data Table -->
+    <div class="p-6">
+      <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-300 mb-4">
+        Scraped Data
+      </h2>
+      <div
+        class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg overflow-x-auto"
+      >
+        <table
+          class="min-w-full table-auto border-collapse border border-gray-300"
+        >
+          <thead class="bg-teal-700 text-white">
+            <tr>
+              <th class="border px-4 py-2 text-left">Search Term</th>
+              <th class="border px-4 py-2 text-left">Date of Search</th>
+            </tr>
+          </thead>
+          <tbody class="text-gray-800 dark:text-gray-300">
+            {% for query in search_queries %}
+            <tr
+              class="border cursor-pointer hover:bg-teal-100 dark:hover:bg-teal-700"
+              data-id="{{ query.id }}"
+              onclick="openModal(this)"
+            >
+              <td class="border px-4 py-2">{{ query.query }}</td>
+              <td class="border px-4 py-2">
+                {{ query.date.strftime('%Y-%m-%d %H:%M:%S') }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
 
-   
-<!-- Modal for showing Scraped Data -->
-<div id="scrapedDataModal" class="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center hidden">
-    <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-1/2">
-        <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-300">Scraped Data Details</h2>
+    <!-- Modal for showing Scraped Data -->
+    <div
+      id="scrapedDataModal"
+      class="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center hidden"
+    >
+      <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-1/2">
+        <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-300">
+          Scraped Data Details
+        </h2>
         <div id="scrapedDataContent" class="mt-4">
-            <!-- Content will be injected here by JavaScript -->
+          <!-- Content will be injected here by JavaScript -->
         </div>
-        <button onclick="closeModal()" class="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
-            Close
+        <div class="mt-4 flex space-x-4">
+          <button
+            onclick="exportDataToCSV()"
+            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+          >
+            Export to CSV
+          </button>
+          <button
+            onclick="exportDataToExcel()"
+            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Export to Excel
+          </button>
+        </div>
+        <button
+          onclick="closeModal()"
+          class="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+        >
+          Close
         </button>
+      </div>
     </div>
-</div>
 
+    <script>
+      function openModal(row) {
+        const queryId = row.getAttribute("data-id");
 
-<script>
-    // Function to open the modal and load data dynamically
-    function openModal(queryId) {
-        // Make an AJAX request to fetch the scraped data for this query
+        // Store the queryId in the modal
+        document.getElementById("scrapedDataModal").dataset.queryId = queryId;
+
         fetch(`/scraped_data/${queryId}`)
-            .then(response => response.json())
-            .then(data => {
-                // Populate the modal with scraped data
-                let content = `
-                    <h3 class="font-semibold text-gray-800 dark:text-gray-300">Search Term: ${data.query}</h3>
-                    <p><strong>Date of Search:</strong> ${data.date}</p>
-                    <table class="w-full mt-4 border-collapse border border-gray-300">
-                        <thead>
-                            <tr class="bg-gray-200 dark:bg-gray-700">
-                                <th class="border p-2">Name</th>
-                                <th class="border p-2">Address</th>
-                                <th class="border p-2">Phone Number</th>
-                                <th class="border p-2">Reviews Count</th>
-                                <th class="border p-2">Reviews Average</th>
-                                <th class="border p-2">Additional Info</th>
-                            </tr>
-                        </thead>
-                        <tbody>`;
-                
-                data.results.forEach(entry => {
-                    content += `
-                        <tr class="border">
-                            <td class="border p-2">${entry.name}</td>
-                            <td class="border p-2">${entry.address}</td>
-                            <td class="border p-2">${entry.phone_number}</td>
-                            <td class="border p-2">${entry.reviews_count}</td>
-                            <td class="border p-2">${entry.reviews_average}</td>
-                            <td class="border p-2">${entry.additional_info}</td>
-                        </tr>`;
-                });
-
-                content += `
-                    </tbody>
-                    </table>
-                `;
-
-                // Inject the content into the modal
-                document.getElementById('scrapedDataContent').innerHTML = content;
-                
-                // Show the modal
-                document.getElementById('scrapedDataModal').classList.remove('hidden');
-            })
-            .catch(error => {
-                console.error('Error fetching data:', error);
+          .then((response) => response.json())
+          .then((data) => {
+            let content = `
+                            <h3 class="font-semibold text-gray-800 dark:text-gray-300">Search Term: ${data.query}</h3>
+                            <p><strong>Date of Search:</strong> ${data.date}</p>
+                            <table class="w-full mt-4 border-collapse border border-gray-300">
+                                <thead>
+                                    <tr class="bg-gray-200 dark:bg-gray-700">
+                                        <th class="border p-2">Name</th>
+                                        <th class="border p-2">Address</th>
+                                        <th class="border p-2">Phone Number</th>
+                                        <th class="border p-2">Reviews Count</th>
+                                        <th class="border p-2">Reviews Average</th>
+                                        <th class="border p-2">Additional Info</th>
+                                    </tr>
+                                </thead>
+                                <tbody>`;
+            data.results.forEach((entry) => {
+              content += `
+                                <tr class="border">
+                                    <td class="border p-2">${entry.name}</td>
+                                    <td class="border p-2">${entry.address}</td>
+                                    <td class="border p-2">${entry.phone_number}</td>
+                                    <td class="border p-2">${entry.reviews_count}</td>
+                                    <td class="border p-2">${entry.reviews_average}</td>
+                                    <td class="border p-2">${entry.additional_info}</td>
+                                </tr>`;
             });
-    }
 
-    // Function to close the modal
-    function closeModal() {
-        document.getElementById('scrapedDataModal').classList.add('hidden');
-    }
-</script>
+            content += `</tbody></table>`;
+            document.getElementById("scrapedDataContent").innerHTML = content;
+            document
+              .getElementById("scrapedDataModal")
+              .classList.remove("hidden");
+          })
+          .catch((error) => {
+            console.error("Error fetching data:", error);
+          });
+      }
 
-    </div>
-    
+      function closeModal() {
+        document.getElementById("scrapedDataModal").classList.add("hidden");
+      }
+
+      function exportDataToCSV() {
+        const queryId =
+          document.getElementById("scrapedDataModal").dataset.queryId;
+        if (queryId) {
+          window.location.href = `/export_csv/${queryId}`;
+        } else {
+          console.error("Query ID is undefined for CSV export.");
+        }
+      }
+
+      function exportDataToExcel() {
+        const queryId =
+          document.getElementById("scrapedDataModal").dataset.queryId;
+        if (queryId) {
+          window.location.href = `/export_excel/${queryId}`;
+        } else {
+          console.error("Query ID is undefined for Excel export.");
+        }
+      }
+    </script>
+  </div>
 </div>
 
 {% endblock %}
